@@ -1,4 +1,3 @@
-#using google text to speech 
 from flask import Flask, render_template, request, jsonify
 import speech_recognition as sr
 import google.generativeai as genai
@@ -7,14 +6,13 @@ import os
 import re
 import keys
 import threading
-import time
 
 app = Flask(__name__)
 
 # Configure Google Gemini API
 genai.configure(api_key=keys.GOOGLE_API_KEY)
 
-# Function to transcribe speech
+# Function to transcribe speech from microphone
 def transcribe_speech():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
@@ -23,13 +21,13 @@ def transcribe_speech():
         audio = recognizer.listen(source)
     
     try:
-        text = recognizer.recognize_google(audio)
-        return text
+        return recognizer.recognize_google(audio)
     except sr.UnknownValueError:
         return "Could not understand audio"
     except sr.RequestError:
         return "Error with the speech recognition service"
 
+# Function to generate AI response using Google Gemini API
 def generate_response(user_prompt):
     system_prompt = (
         "You are a helpful assistant. Always provide polite and formal responses. "
@@ -38,32 +36,31 @@ def generate_response(user_prompt):
     )
     
     model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content([system_prompt, user_prompt])  # Include system prompt
+    response = model.generate_content([system_prompt, user_prompt])
     
-    # Clean text and limit to 7-8 lines
-    cleaned_text = re.sub(r'\*', '', response.text)  # Remove asterisks
-    lines = cleaned_text.split("\n")  # Split into lines
-    limited_text = "\n".join(lines[:8])  # Keep only first 8 lines
+    # Clean and limit response to 8 lines
+    cleaned_text = re.sub(r'\\*', '', response.text)
+    lines = cleaned_text.split("\n")
+    return "\n".join(lines[:8])
 
-    return limited_text
-
-# Function to convert text to speech using Google TTS
+# Function to convert text to speech and play the response
 def text_to_speech(text):
     def speak():
         try:
-            tts = gTTS(text=text, lang='en', tld='co.uk', slow=False)  # UK Female voice
-            tts.save("response.mp3")  # Save as MP3 file
-            os.system("mpg321 response.mp3")  # Play audio (use `afplay` on macOS)
+            tts = gTTS(text=text, lang='en', tld='co.uk', slow=False)
+            tts.save("response.mp3")
+            os.system("mpg321 response.mp3")  # Use 'afplay' on macOS
         except Exception as e:
             print(f"TTS Error: {e}")
+    
+    threading.Thread(target=speak, daemon=True).start()
 
-    t = threading.Thread(target=speak, daemon=True)
-    t.start()
-
+# Route for rendering the homepage
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# Route to process text input and generate AI response
 @app.route('/process_text', methods=['POST'])
 def process_text():
     data = request.get_json()
@@ -79,7 +76,7 @@ def process_text():
         print(f"Error processing text: {e}")
         return jsonify({"error": "Error processing request"}), 500
 
-
+# Route to process speech input, generate response, and play the response
 @app.route('/process_speech', methods=['POST'])
 def process_speech():
     user_text = transcribe_speech()
@@ -91,6 +88,6 @@ def process_speech():
     
     return jsonify({"user": user_text, "bot": response_text})
 
+# Run the Flask application
 if __name__ == '__main__':
     app.run(debug=True)
-

@@ -1,3 +1,7 @@
-gradio 
-openai 
-soundfile
+Flask
+speechrecognition
+google-generativeai
+gtts
+pyaudio
+mpg321
+requests
