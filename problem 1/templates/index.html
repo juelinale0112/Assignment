@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #F7F7F7;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            height: 80vh;
+            background: #FFFFFF;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #5D576B;
+            margin-bottom: 15px;
+        }
+
+        .chat-box {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            background: #FAF3DD;
+        }
+
+        .chat-message {
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .user-message {
+            background: #AFCBFF;
+            text-align: right;
+        }
+
+        .bot-message {
+            background: #FFCAD4;
+            text-align: left;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .speak-button, .send-button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background: #91C8E4;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .speak-button:hover, .send-button:hover {
+            background: #72B6E0;
+        }
+
+        .speak-button img, .send-button img {
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">Voice Enabled AI Chatbot</div>
+        <div class="chat-box" id="chatBox"></div>
+        <div class="input-container">
+            <input type="text" id="userInput" placeholder="Type your query here...">
+            <button class="send-button" id="sendButton">Send</button>
+            <button class="speak-button" id="speakButton">
+                <img src="https://img.icons8.com/ios-glyphs/30/microphone.png" alt="Mic">
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById("chatBox");
+        const userInput = document.getElementById("userInput");
+        const sendButton = document.getElementById("sendButton");
+        const speakButton = document.getElementById("speakButton");
+        let isRecording = false;
+
+        sendButton.addEventListener("click", function() {
+            const userText = userInput.value.trim();
+            if (userText) {
+                addMessage("You: " + userText, "user-message");
+                userInput.value = "";
+                fetchResponse(userText);
+            }
+        });
+
+        speakButton.addEventListener("click", function() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+
+        function startRecording() {
+            isRecording = true;
+            speakButton.innerHTML = '<img src="https://img.icons8.com/ios-glyphs/30/microphone-slash.png" alt="Mic">';
+            fetch("/process_speech", { method: "POST" })
+                .then(response => response.json())
+                .then(data => {
+                    addMessage("You: " + data.user, "user-message");
+                    addMessage("Bot: " + data.bot, "bot-message");
+                    startSpeaking(data.bot);
+                });
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            speakButton.innerHTML = '<img src="https://img.icons8.com/ios-glyphs/30/microphone.png" alt="Mic">';
+        }
+
+        function fetchResponse(userText) {
+            fetch("/process_text", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: userText })
+            })
+            .then(response => response.json())
+            .then(data => {
+                addMessage("Bot: " + data.bot, "bot-message");
+                startSpeaking(data.bot);
+            });
+        }
+
+        function addMessage(text, className) {
+            const message = document.createElement("div");
+            message.className = "chat-message " + className;
+            message.textContent = text;
+            chatBox.appendChild(message);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function startSpeaking(text) {
+            const synth = window.speechSynthesis;
+            const utterance = new SpeechSynthesisUtterance(text);
+            synth.speak(utterance);
+        }
+    </script>
+</body>
+</html>
